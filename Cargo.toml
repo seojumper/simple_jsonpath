@@ -1,0 +1,19 @@
+[package]
+name = "simple_jsonpath"
+version = "0.1.2"
+edition = "2024"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "simple_jsonpath"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.28.2", features = ["serde"] }
+serde_json_path = { git = "https://github.com/seojumper/serde_json_path.git", branch = "quotes" }
+serde_json = "1.0.149"
+pythonize = { version = "0.28.0", features = ["serde_json"] }
+
+
+[dev-dependencies]
+rstest = "0.26.1"
