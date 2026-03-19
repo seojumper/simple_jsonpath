@@ -70,3 +70,6 @@ docs/_build/
 
 # Pyenv
 .python-version
+
+path.py
+device.json

@@ -6,8 +6,25 @@ build-backend = "maturin"
 name = "simple_jsonpath"
 requires-python = ">=3.8"
 classifiers = [
+    "Intended Audience :: Developers",
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
+authors = [
+    { name = "Jeremy Spencer", email = "seojumper@gmail.com" },
+]
+description = "A simple - yet quick - JSONPath implementation for querying JSON data."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"] 
+keywords = ["jsonpath"]
+
 dynamic = ["version"]
+
+[tool.maturin]
+python-source = "python"
+module-name = "simple_jsonpath._simple_jsonpath"
+
+[project.urls]
+Homepage = "https://github.com/seojumper/simple_jsonpath"
