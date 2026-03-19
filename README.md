@@ -68,11 +68,11 @@ The inner implementation stores previously parsed 'paths'. This allows repeatedl
 
 This is ideal for situations where multiple similar JSON documents will be searched in succession.
 
-The same **JsonPath** object can then be reused with new data sets by calling **set_data()** on it again, and any previously parsed paths by the object will be retained.
+The same ***JsonPath*** object can then be reused with new data sets by calling ***set_data()*** on it again, and any previously parsed paths by the object will be retained.
 
-Only when moving onto data of differing structure would it be potentially advisable to instantiate a new **JsonPath** object.
+Only when moving onto data of differing structure would it be potentially advisable to instantiate a new ***JsonPath*** object.
 
-### "Find Located' Example
+### 'Find Located' Example
 
 ```python
 from simple_jsonpath import JsonPath, LocatedNode
