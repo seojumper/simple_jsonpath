@@ -28,6 +28,10 @@ keywords = ["jsonpath"]
 
 dynamic = ["version"]
 
+dependencies = [
+    "orjson>=3.11.7"
+]
+
 [tool.maturin]
 python-source = "python"
 module-name = "simple_jsonpath._simple_jsonpath"
