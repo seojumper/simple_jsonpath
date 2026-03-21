@@ -134,6 +134,10 @@ class JsonPath:
         child_cls = self.__class__
         child = child_cls()
         return child
+    
+    def has_data(self) -> bool:
+        """Returns True if this instance has data set to it, False otherwise."""
+        return self._parser.has_data()  
 
     def set_data(self, input_data: Union[dict[str, Any], list[Any]]) -> None:
         """Set the JSON data for the query engine from a Python object.
