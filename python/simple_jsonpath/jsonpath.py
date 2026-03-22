@@ -15,7 +15,7 @@ class LocatedNode:
         self._node: Union[str,int,float,bool,None,dict[str, Any], list[Any]] = node
 
     @builtins.property
-    def path(self) -> Path:
+    def path_components(self) -> Path:
         """An iterator that yields the path components of the last query result.
         
         The full path can be converted to a str through the str() method.
