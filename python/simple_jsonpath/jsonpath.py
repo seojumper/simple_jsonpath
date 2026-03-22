@@ -22,7 +22,7 @@ class LocatedNode:
     def path_components(self) -> Path:
         """An iterator that yields the path components of the last query result.
 
-        The full path can be converted to a str through the str() method.
+        The full path can be converted to a str through the str() method against this object.
         """
         return self._path
 
