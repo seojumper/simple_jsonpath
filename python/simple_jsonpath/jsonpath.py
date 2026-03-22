@@ -1,42 +1,47 @@
 from ._simple_jsonpath import SimpleJsonPath as RustSimpleJsonPath, Path
 import sys
+
 if sys.version_info >= (3, 11):
     from typing import Self, Union, Any
 else:
     from typing_extensions import Self, Union, Any
 import orjson
-from dataclasses import dataclass
 import builtins
 
 
 class LocatedNode:
-    def __init__(self, path: Path, node: Union[str,int,float,bool,None,dict[str, Any], list[Any]] ) -> None:
+    def __init__(
+        self,
+        path: Path,
+        node: Union[str, int, float, bool, None, dict[str, Any], list[Any]],
+    ) -> None:
         self._path: Path = path
-        self._node: Union[str,int,float,bool,None,dict[str, Any], list[Any]] = node
+        self._node: Union[str, int, float, bool, None, dict[str, Any], list[Any]] = node
 
     @builtins.property
     def path_components(self) -> Path:
         """An iterator that yields the path components of the last query result.
-        
+
         The full path can be converted to a str through the str() method.
         """
         return self._path
-    @builtins.property   
-    def node(self) -> Union[str,int,float,bool,None,dict[str, Any], list[Any]]:
+
+    @builtins.property
+    def node(self) -> Union[str, int, float, bool, None, dict[str, Any], list[Any]]:
         """The node value of the last query result."""
         return self._node
 
 
 class JsonPath:
     """A simple JSONPath implementation for querying JSON data.
-    
+
     It uses a Rust backend for performance and supports caching of parsed
     JSONPath expressions for repeated queries against the same JSON data.
     """
+
     def __init__(self) -> None:
         self._parser = RustSimpleJsonPath()
 
-    
     def child(self) -> Self:
         """Spawns a child instance of the class.
 
@@ -44,16 +49,16 @@ class JsonPath:
         to set_data() need to be called on it for it to function.
 
         It does however retain shared mutable access to the parent's collection
-        of pre-parsed path objects across all spawned children. 
+        of pre-parsed path objects across all spawned children.
 
         This is useful for the pattern of:
             1. Searching a document for a path query.
             2. Then using those results returned as the basis of a new 'root element'
             for 'deeper' searches into a document.
-        
-        Instead of assigning the original query results to current instance, it can 
+
+        Instead of assigning the original query results to current instance, it can
         be beneficial to spawn a child for each result, and assign the result
-        data to the child or multiple children if more than one result was returned. 
+        data to the child or multiple children if more than one result was returned.
 
         With this pattern the 'base' parent object will automatically contain
         all parsed paths for the document that were searched by
@@ -66,10 +71,10 @@ class JsonPath:
         child_cls = self.__class__
         child = child_cls()
         return child
-    
+
     def has_data(self) -> bool:
         """Returns True if this instance has data set to it, False otherwise."""
-        return self._parser.has_data()  
+        return self._parser.has_data()
 
     def set_data(self, input_data: Union[dict[str, Any], list[Any]]) -> None:
         """Set the JSON data for the query engine from a Python object.
@@ -78,7 +83,7 @@ class JsonPath:
         operations performed against this instance.
 
         Calling the function consecutively will replace any existing 'set' data.
-        
+
         Args:
             input_data: The JSON data to set, as a Python dictionary or list.
 
@@ -95,7 +100,7 @@ class JsonPath:
 
         The path expression is first parsed, then executed against the data previously
         'set'. Parsed path expressions are cached for efficient future use.
-        
+
         Args:
             path: The JSONPath expression to evaluate.
 
@@ -107,7 +112,9 @@ class JsonPath:
             LookupError: If this is called before data has not been set to this object through 'set_data()'.
         """
         if not self._parser.has_data():
-            raise LookupError("Data must be set through calling 'set_data()' before attempting a query")
+            raise LookupError(
+                "Data must be set through calling 'set_data()' before attempting a query"
+            )
         return self._parser.find(path)
 
     def find_located(self, path: str) -> list[LocatedNode]:
@@ -115,7 +122,7 @@ class JsonPath:
 
         The path expression is first parsed, then executed against the data previously
         'set'. Parsed path expressions are cached for efficient future use.
-        
+
         Args:
             path: The JSONPath expression to evaluate.
 
@@ -127,7 +134,8 @@ class JsonPath:
             LookupError: If this is called before data has not been set to this object through 'set_data()'.
         """
         if not self._parser.has_data():
-            raise LookupError("Data must be set through calling 'set_data()' before attempting a query")
+            raise LookupError(
+                "Data must be set through calling 'set_data()' before attempting a query"
+            )
         result = self._parser.find_located(path)
         return [LocatedNode(path, node) for (path, node) in result]
-
