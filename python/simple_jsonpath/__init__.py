@@ -1,7 +1,7 @@
 
 """A simple - yet quick - JSONPath implementation for querying JSON data."""
 
-from .jsonpath import JsonPath, LocatedNode 
+from .jsonpath import JsonPath
 
 
-__all__ = ["JsonPath", "LocatedNode"]
+__all__ = ["JsonPath"]

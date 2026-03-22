@@ -1,4 +1,4 @@
-from ._simple_jsonpath import SimpleJsonPath as RustSimpleJsonPath
+from ._simple_jsonpath import SimpleJsonPath as RustSimpleJsonPath, Path
 import sys
 if sys.version_info >= (3, 11):
     from typing import Self, Union, Any
@@ -7,88 +7,20 @@ else:
 import orjson
 from dataclasses import dataclass
 import builtins
-import json
 
-class PathComponentsIter:
-    def __init__(self, path: str, nodes: list[tuple[int, int]]):
-        self._current: int = 0
-        self._path: str = path    
-        self._end: int = len(nodes)
-        self._items: list[tuple[int,int]] = nodes
 
-    def __next__(self) -> Union[str, int]:
-        if self._current >= self._end:
-            raise StopIteration
-        if self._current == 0:
-            self._current +=1
-            return "$"
-        else:
-            item = self._items[self._current]
-            if item[0] == 0:
-                self._current += 1
-                return item[1]
-            else:
-                self._current += 1
-                return self._path[item[0]:item[1]]
-
-@dataclass(frozen=True)
-class PathComponents:
-    _path: str
-    _items: list[tuple[int, int]]
-
-    def __len__(self) -> int:
-        return len(self._items)
-
-    def __iter__(self) -> PathComponentsIter:
-        return PathComponentsIter(self._path, self._items)
-    
-    def __getitem__(self, index: int) -> Union[str, int]:
-        if index >= len(self._items):
-            raise IndexError("Index out of range")
-        elif index == 0:
-            return "$"
-        elif index < 0:
-            raise IndexError("Negative indexing is not supported")  
-        else:
-            item = self._items[index]
-            if item[0] == 0:
-                return item[1]
-            else:
-                return self._path[item[0]:item[1]]
-    def __contains__(self, item: Union[int, str]) -> bool:
-        if isinstance(item, int):
-            for i in range(len(self._items)):
-                if i == 0:
-                    continue
-                else:
-                    if self._items[i][0] == 0 and self._items[i][1] == item:
-                        return True
-            return False
-        else:
-            for i in range(len(self._items[1:])):
-                if i == 0:
-                    if item == "$":
-                        return True
-                else:   
-                    if self._path[self._items[i][0]:self._items[i][1]] == item:
-                        return True
-            return False
-          
 class LocatedNode:
-    """A struct to hold the located nodes found from a located JSONPath query."""
-    def __init__(self, full_path: str, path_components: list[tuple[int, int]], node: Union[str,int,float,bool,None,dict[str, Any], list[Any]]) -> None:
-        self._full_path: str = full_path
-        self._path_components: PathComponents = PathComponents(full_path, path_components)
+    def __init__(self, path: Path, node: Union[str,int,float,bool,None,dict[str, Any], list[Any]] ) -> None:
+        self._path: Path = path
         self._node: Union[str,int,float,bool,None,dict[str, Any], list[Any]] = node
 
     @builtins.property
-    def path_components(self) -> PathComponents:
-        """An iterator that yields the path components of the last query result."""
-        return self._path_components
-    @builtins.property
-    def full_path(self) -> str:
-        """The full path of the last query result."""
-        return self._full_path
+    def path(self) -> Path:
+        """An iterator that yields the path components of the last query result.
+        
+        The full path can be converted to a str through the str() method.
+        """
+        return self._path
     @builtins.property   
     def node(self) -> Union[str,int,float,bool,None,dict[str, Any], list[Any]]:
         """The node value of the last query result."""
@@ -197,5 +129,5 @@ class JsonPath:
         if not self._parser.has_data():
             raise LookupError("Data must be set through calling 'set_data()' before attempting a query")
         result = self._parser.find_located(path)
-        return [LocatedNode(item['full_path'], item['path_components'], item['node']) for item in result]
+        return [LocatedNode(path, node) for (path, node) in result]
 

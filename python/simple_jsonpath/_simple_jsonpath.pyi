@@ -1,6 +1,13 @@
 """A Python module for querying JSON data using JSONPath expressions."""
 
-from typing import Any
+from typing import Any, Union
+
+class Path:
+    """Object that represents the JSONPath where a node was found."""
+    def __getitem__(self, index: int) -> Union[int,str]: ...
+    def __str__(self) -> str: ...
+    def __repr__(self) -> str: ...
+    def parent_path(self) -> Path: ...
 
 class SimpleJsonPath:
     """A parser object that can be reused for multiple queries on the same JSON data."""
@@ -18,7 +25,8 @@ class SimpleJsonPath:
     def find(self, path: str) -> list[Any]: 
         """Find the value(s) in the JSON data that match the given JSONPath expression, using a cache for parsed paths."""
         ...
-
-    def find_located(self, path: str) -> list[Any]:
+    def find_located(self, path: str) -> list[tuple[Path, Any]]:
         """Find the value(s) in the JSON data that match the given JSONPath expression, along with their locations, using a cache for parsed paths."""
         ...
+
+    

@@ -1,7 +1,7 @@
 use pyo3::{
     exceptions,
     prelude::*,
-    types::{PyBool, PyDict, PyDictMethods, PyFloat, PyInt, PyList, PyListMethods, PyString},
+    types::{PyBool, PyDict, PyDictMethods, PyFloat, PyList, PyListMethods, PyString},
 };
 use serde_json_path::NormalizedPath;
 // use simple_jsonpath::SimpleJsonPath;
@@ -11,13 +11,14 @@ use serde_json_path::NormalizedPath;
 #[pyo3(name = "_simple_jsonpath")]
 mod simple_jsonpath {
     use super::*;
-    use pyo3::types::PyBytes;
+    use pyo3::types::{PyBytes, PyInt, PySlice};
     use serde_json::Value;
     use serde_json_path::JsonPath;
     use std::{
         collections::HashMap,
         sync::{Arc, Mutex},
     };
+    use ustr::Ustr;
 
     /// A parser object that can be reused for multiple queries on the same JSON data.
     #[pyclass]
@@ -32,7 +33,7 @@ mod simple_jsonpath {
         #[new]
         pub fn new() -> PyResult<Self> {
             Ok(Self {
-                inner: Arc::new(Mutex::new(HashMap::new())),
+                inner: Arc::new(Mutex::new(HashMap::with_capacity(500))),
                 data: None,
             })
         }
@@ -130,12 +131,133 @@ mod simple_jsonpath {
             };
             let pyresult = PyList::empty(py);
             for item in &result {
-                pyresult.append(
-                    LocatedNode::new(item.location(), item.node()).convert_to_py_any(py)?,
-                )?;
+                pyresult.append((
+                    Path::new(item.location()),
+                    serialize_value(py, item.node())?,
+                ))?;
             }
 
             Ok(pyresult)
+        }
+    }
+    #[derive(Clone, Copy)]
+    enum Index {
+        U(Ustr),
+        I(usize),
+    }
+
+    impl Index {
+        fn to_normalized_segment(&self) -> String {
+            match self {
+                Self::I(num) => format!("[{num}]"),
+                Self::U(u) => format!("['{}']", u.as_str()),
+            }
+        }
+    }
+    #[pyclass(sequence)]
+    struct Path {
+        indexes: Vec<Index>,
+    }
+    #[pymethods]
+    impl Path {
+        fn __getitem__<'py>(&self, index: Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+            let py = index.py();
+            match index.cast::<PyInt>() {
+                Ok(index) => {
+                    let mut i = index.extract::<isize>()?;
+                    if i < 0 {
+                        if i == -1 {
+                            let last = self.indexes.last().unwrap();
+                            match last {
+                                Index::U(u) => Ok(PyString::new(py, u.as_str()).into_any()),
+                                Index::I(i) => Ok(PyInt::new(py, i).into_any()),
+                            }
+                        } else {
+                            let abs_index = i.unsigned_abs();
+                            if abs_index > self.__len__() {
+                                Err(exceptions::PyIndexError::new_err("Index out of Range"))
+                            } else if abs_index == self.__len__() {
+                                Ok(PyString::new(py, "$").into_any())
+                            } else {
+                                let found =
+                                    self.indexes.get(self.indexes.len() - abs_index).unwrap();
+                                match found {
+                                    Index::U(u) => Ok(PyString::new(py, u.as_str()).into_any()),
+                                    Index::I(i) => Ok(PyInt::new(py, i).into_any()),
+                                }
+                            }
+                        }
+                    } else if i as usize == 0 {
+                        Ok(PyString::new(py, "$").into_any())
+                    } else {
+                        i -= 1;
+                        if let Some(i) = self.indexes.get(i as usize) {
+                            match i {
+                                Index::U(u) => Ok(PyString::new(py, u.as_str()).into_any()),
+                                Index::I(i) => Ok(PyInt::new(py, i).into_any()),
+                            }
+                        } else {
+                            Err(exceptions::PyIndexError::new_err("Index out of Range"))
+                        }
+                    }
+                }
+                Err(_) => match index.cast::<PySlice>() {
+                    Ok(_) => Err(exceptions::PyValueError::new_err(
+                        "Slicing operations are not supported",
+                    )),
+                    Err(e) => Err(e.into()),
+                },
+            }
+        }
+        fn __len__(&self) -> usize {
+            self.indexes.len() + 1
+        }
+        fn __repr__(&self) -> String {
+            if self.indexes.len() == 1 {
+                "$".to_string()
+            } else {
+                let mut string = "$".to_string();
+                string.extend(self.indexes[1..].iter().map(|i| match i {
+                    Index::U(u) => format!("['{}']", u),
+                    Index::I(num) => format!("[{num}]"),
+                }));
+                string
+            }
+        }
+        fn __str__(&self) -> String {
+            if self.indexes.len() == 1 {
+                "$".to_string()
+            } else {
+                let mut string = "$".to_string();
+                string.extend(self.indexes.iter().map(|i| i.to_normalized_segment()));
+                string
+            }
+        }
+        fn parent_path(&self) -> Option<Path> {
+            if !self.indexes.is_empty() {
+                let mut path = Vec::with_capacity(self.__len__() - 1);
+                path.extend(
+                    self.indexes[..self.indexes.len() - 1]
+                        .iter()
+                        .map(|index| *index),
+                );
+                Some(Path { indexes: path })
+            } else {
+                None
+            }
+        }
+    }
+
+    impl Path {
+        fn new(location: &NormalizedPath) -> Self {
+            let ids: Vec<Index> = location
+                .iter()
+                .map(|item| match item {
+                    serde_json_path::PathElement::Name(name) => Index::U(Ustr::from(name)),
+                    serde_json_path::PathElement::Index(num) => Index::I(*num),
+                })
+                .collect();
+            Self { indexes: ids }
         }
     }
     fn serialize_value<'a>(py: Python<'a>, value: &'a Value) -> PyResult<Bound<'a, PyAny>> {
@@ -167,111 +289,6 @@ mod simple_jsonpath {
             }
         }
     }
-
-    struct LocatedNode<'a> {
-        full_path: String,
-        path_components: Vec<(usize, usize)>,
-        node: &'a Value,
-    }
-
-    impl<'a> LocatedNode<'a> {
-        fn new(full_path: &NormalizedPath, node: &'a Value) -> Self {
-            let (full_path, path_components) = split_normalized_path_component_ranges(full_path);
-            LocatedNode {
-                full_path,
-                path_components,
-                node,
-            }
-        }
-        // Implement the conversion function
-        fn convert_to_py_any<'py>(self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-            // Convert the inner value to a Python integer;
-            let dict = PyDict::new(py);
-            let mapping = dict.as_mapping();
-            mapping.set_item("full_path", self.full_path)?;
-            mapping.set_item("path_components", self.path_components)?;
-            mapping.set_item("node", serialize_value(py, self.node)?)?;
-
-            Ok(dict.into_any())
-        }
-    }
-
-    pub fn split_normalized_path_component_ranges(
-        path: &NormalizedPath,
-    ) -> (String, Vec<(usize, usize)>) {
-        let path_str = path.to_string();
-        let chars = &path_str.as_str();
-
-        let mut ranges = Vec::with_capacity(path.len() + 1);
-        ranges.push((0, 1)); // Start with the root component '$'
-
-        #[derive(Debug)]
-        enum State {
-            Start,
-            Root,
-            InBracket,
-            InQuotedField,
-            InEscapedChar,
-            InIndex,
-        }
-        let mut num_start = None;
-        let mut start = None;
-        let mut state = State::Start;
-        for (i, c) in chars.char_indices() {
-            match state {
-                State::Start => {
-                    if c == '$' {
-                        state = State::Root;
-                    }
-                }
-                State::Root => {
-                    if c == '[' {
-                        state = State::InBracket;
-                    }
-                }
-                State::InBracket => {
-                    if c == ']' {
-                        state = State::Root;
-                    } else if c == '\'' {
-                        state = State::InQuotedField;
-                    } else {
-                        state = State::InIndex;
-                        num_start = Some(i);
-                    }
-                }
-                State::InQuotedField => match c {
-                    '\\' => state = State::InEscapedChar,
-                    '\'' => {
-                        match start {
-                            Some(_) => ranges.push((start.take().unwrap(), i)),
-                            None => ranges.push((i + 1, i - 1)),
-                        }
-                        state = State::InBracket;
-                    }
-                    _ => match start {
-                        Some(_) => {}
-                        None => start = Some(i),
-                    },
-                },
-                State::InEscapedChar => {
-                    state = State::InQuotedField;
-                }
-                State::InIndex => {
-                    if c == ']' {
-                        if num_start.is_some() {
-                            let num = chars[num_start.take().unwrap()..i]
-                                .parse::<usize>()
-                                .unwrap();
-                            ranges.push((0, num));
-                        }
-                        state = State::Root;
-                    }
-                }
-            }
-        }
-
-        (path_str, ranges)
-    }
 }
 
 /// A struct to hold the located nodes for serialization.
@@ -283,9 +300,7 @@ mod simple_jsonpath {
 #[cfg(test)]
 mod tests {
     // use super::simple_jsonpath::SimpleJsonPath;
-    use super::simple_jsonpath::split_normalized_path_component_ranges;
     use rstest::rstest;
-    use serde_json::Value;
     use serde_json_path::JsonPath;
 
     #[rstest]
@@ -309,22 +324,22 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[test]
-    fn split_normalized_path_into_component_ranges() {
-        let data: Value = serde_json::from_str(r#"{"items":[{"name":"a"}] }"#).unwrap();
-        let path = JsonPath::parse("$.items[0].name").unwrap();
-        let located = path.query_located(&data).all();
-        let location = located.first().unwrap().location();
-        // $['items'][0]['name']
-        println!("Getting here");
-        let ranges = split_normalized_path_component_ranges(&location);
-        println!("Getting here 2");
-        let expected = vec![(0, 1), (3, 7), (0, 0), (15, 18)];
-        for range in &ranges.1 {
-            println!("Component: {}", &location.to_string()[range.0..range.1]);
-        }
-        println!("Getting here 3");
+    // #[test]
+    // fn split_normalized_path_into_component_ranges() {
+    //     let data: Value = serde_json::from_str(r#"{"items":[{"name":"a"}] }"#).unwrap();
+    //     let path = JsonPath::parse("$.items[0].name").unwrap();
+    //     let located = path.query_located(&data).all();
+    //     let location = located.first().unwrap().location();
+    //     // $['items'][0]['name']
+    //     println!("Getting here");
+    //     let ranges = split_normalized_path_component_ranges(&location);
+    //     println!("Getting here 2");
+    //     let expected = vec![(0, 1), (3, 7), (0, 0), (15, 18)];
+    //     for range in &ranges.1 {
+    //         println!("Component: {}", &location.to_string()[range.0..range.1]);
+    //     }
+    //     println!("Getting here 3");
 
-        assert_eq!(ranges.1, expected);
-    }
+    //     assert_eq!(ranges.1, expected);
+    // }
 }

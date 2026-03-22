@@ -8,7 +8,8 @@ pip install simple_jsonpath
 
 ## About
 
-This module is a JSONPath [RFC9535 - JSONPath: Query Expressions for JSON](https://datatracker.ietf.org/doc/html/rfc9535) utility library.
+This module is a JSONPath [RFC9535 - JSONPath: Query Expressions for JSON](https://datatracker.ietf.org/doc/html/rfc9535) utility library that supports performing querying for data in a JSON document.  It does **NOT** supporting modifying data
+in place.
 
 ## Use
 
@@ -159,12 +160,12 @@ results: list[LocatedNode] = finder.find_located("$.items[*].address.'prefix-lis
 for data in results:
 
     # Print the normalized full path where the node was found
-    print(f"{data.full_path}")
+    print(f"{data.path}")
     # $['items'][0]['address']['prefix-list'][0]['prefix']
 
     # Iterate over the components of the found path
     # Returned elements will either be a 'str' for keys or 'int' for index values
-    print(f"{', '.join([str(component) for component in data.path_components])}")
+    print(f"{', '.join([str(component) for component in data.path])}")
     # $, items, 0, adddress, prefix-list, 0, prefix
 
     # Access the found node. 
