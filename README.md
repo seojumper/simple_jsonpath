@@ -160,12 +160,16 @@ results: list[LocatedNode] = finder.find_located("$.items[*].address.'prefix-lis
 for data in results:
 
     # Print the normalized full path where the node was found
-    print(f"{data.path_components}")
+    print(f"{data.path}")
     # $['items'][0]['address']['prefix-list'][0]['prefix']
+
+    # Print the normalized full path of the parent where the node was found
+    print(f"{data.parent_path}")
+    # $['items'][0]['address']['prefix-list'][0]
 
     # Iterate over the components of the found path
     # Returned elements will either be a 'str' for keys or 'int' for index values
-    print(f"{', '.join([str(component) for component in data.path_components])}")
+    print(f"{', '.join([str(component) for component in data.path])}")
     # $, items, 0, adddress, prefix-list, 0, prefix
 
     # Access the found node. 
