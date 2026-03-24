@@ -4,7 +4,7 @@ import sys
 if sys.version_info >= (3, 11):
     from typing import Self, Union, Any, Optional
 else:
-    from typing_extensions import Self, Union, Any
+    from typing_extensions import Self, Union, Any, Optional
 import orjson
 import builtins
 
