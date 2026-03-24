@@ -1,10 +1,11 @@
+//! Module that provides a Python interface for querying JSON data using JSONPath expressions, implemented in Rust for performance.
+
 use pyo3::{
     exceptions,
     prelude::*,
     types::{PyBool, PyDict, PyDictMethods, PyFloat, PyList, PyListMethods, PyString},
 };
 use serde_json_path::NormalizedPath;
-// use simple_jsonpath::SimpleJsonPath;
 
 /// A Python module for querying JSON data using JSONPath expressions.
 #[pymodule]
@@ -54,6 +55,7 @@ mod simple_jsonpath {
             })
         }
 
+        /// Check if the parser has JSON data set for querying.
         pub fn has_data(&self) -> bool {
             self.data.is_some()
         }
@@ -140,6 +142,7 @@ mod simple_jsonpath {
             Ok(pyresult)
         }
     }
+    /// An enum to represent either a string key or an integer index in a JSONPath segment.
     #[derive(Clone, Copy)]
     enum Index {
         U(Ustr),
@@ -154,12 +157,16 @@ mod simple_jsonpath {
             }
         }
     }
+    /// A struct to represent a JSONPath location as a sequence of indexes, which can be accessed from Python.
     #[pyclass(sequence)]
     struct Path {
         indexes: Vec<Index>,
     }
+
     #[pymethods]
     impl Path {
+        /// Return the segment of the path at the given index, where the index can be an integer (positive or negative). 
+        /// If the index is out of range, raise an IndexError. If the index is a slice, raise a ValueError since slicing is not supported.
         fn __getitem__<'py>(&self, index: Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
             let py = index.py();
             match index.cast::<PyInt>() {
@@ -209,6 +216,8 @@ mod simple_jsonpath {
                 },
             }
         }
+
+        /// Return the number of segments in the path, which is one more than the number of indexes (to account for the root '$' segment).
         fn __len__(&self) -> usize {
             self.indexes.len() + 1
         }
@@ -224,6 +233,7 @@ mod simple_jsonpath {
                 string
             }
         }
+        /// Return a string representation of the path, which is the same as the __repr__ method in this case.
         fn __str__(&self) -> String {
             if self.indexes.len() == 1 {
                 "$".to_string()
@@ -233,6 +243,7 @@ mod simple_jsonpath {
                 string
             }
         }
+        /// Return a new Path object that represents the parent path of the current path, which is the same path without the last segment. If the current path is the root '$', return None.
         fn parent_path(&self) -> Option<Path> {
             if !self.indexes.is_empty() {
                 let mut path = Vec::with_capacity(self.__len__() - 1);
@@ -249,6 +260,7 @@ mod simple_jsonpath {
     }
 
     impl Path {
+        /// Create a new Path object from a NormalizedPath, which is a sequence of PathElements. Each PathElement can be either a Name (string key) or an Index (integer index), and we convert them into our Index enum to store in the Path struct.
         fn new(location: &NormalizedPath) -> Self {
             let ids: Vec<Index> = location
                 .iter()
@@ -260,6 +272,8 @@ mod simple_jsonpath {
             Self { indexes: ids }
         }
     }
+
+    /// Helper function to serialize a serde_json::Value into a corresponding Python object.
     fn serialize_value<'a>(py: Python<'a>, value: &'a Value) -> PyResult<Bound<'a, PyAny>> {
         match value {
             Value::Null => Ok(py.None().into_bound(py)),
@@ -291,11 +305,7 @@ mod simple_jsonpath {
     }
 }
 
-/// A struct to hold the located nodes for serialization.
 
-/// Splits a normalized JSONPath into byte ranges `(start, end)` per component.
-///
-/// Example: `$['items'][0]['name']` -> `[(0,1), (1,10), (10,13), (13,21)]`
 
 #[cfg(test)]
 mod tests {

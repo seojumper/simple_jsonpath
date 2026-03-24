@@ -2,7 +2,7 @@ from ._simple_jsonpath import SimpleJsonPath as RustSimpleJsonPath, Path
 import sys
 
 if sys.version_info >= (3, 11):
-    from typing import Self, Union, Any
+    from typing import Self, Union, Any, Optional
 else:
     from typing_extensions import Self, Union, Any
 import orjson
@@ -10,6 +10,8 @@ import builtins
 
 
 class LocatedNode:
+    """A class that represents a node found in the JSON data along with its location path."""
+
     def __init__(
         self,
         path: Path,
@@ -19,7 +21,7 @@ class LocatedNode:
         self._node: Union[str, int, float, bool, None, dict[str, Any], list[Any]] = node
 
     @builtins.property
-    def path_components(self) -> Path:
+    def path(self) -> Path:
         """An iterator that yields the path components of the last query result.
 
         The full path can be converted to a str through the str() method against this object.
@@ -30,6 +32,11 @@ class LocatedNode:
     def node(self) -> Union[str, int, float, bool, None, dict[str, Any], list[Any]]:
         """The node value of the last query result."""
         return self._node
+    
+    @builtins.property
+    def parent_path(self) -> Optional[Path]:
+        """The parent path of the last query result."""
+        return self._path.parent_path()
 
 
 class JsonPath:
@@ -102,10 +109,10 @@ class JsonPath:
         'set'. Parsed path expressions are cached for efficient future use.
 
         Args:
-            path: The JSONPath expression to evaluate.
+            path(str): The JSONPath expression to evaluate.
 
         Returns:
-            A list of values that match the JSONPath expression.
+            list[Any]: A list of values that match the JSONPath expression.
 
         Raises:
             ValueError: If the JSONPath expression is invalid.
@@ -124,10 +131,10 @@ class JsonPath:
         'set'. Parsed path expressions are cached for efficient future use.
 
         Args:
-            path: The JSONPath expression to evaluate.
+            path(str): The JSONPath expression to evaluate.
 
         Returns:
-            A list of LocatedNode objects that match the JSONPath expression.
+            list[LocatedNode]: A list of 'LocatedNode' objects that match the JSONPath expression.
 
         Raises:
             ValueError: If the JSONPath expression is invalid.
