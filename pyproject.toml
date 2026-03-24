@@ -29,7 +29,8 @@ keywords = ["jsonpath"]
 dynamic = ["version"]
 
 dependencies = [
-    "orjson>=3.11.7"
+    "orjson>=3.11.7",
+    "typing_extensions>=4.0.0,<5.0.0"
 ]
 
 [tool.maturin]
